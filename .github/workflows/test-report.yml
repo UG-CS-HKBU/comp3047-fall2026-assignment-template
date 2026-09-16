@@ -238,13 +238,12 @@ jobs:
           const path = require('path');
           const fs = require('fs');
 
+          (async () => {
           const results = [];
           async function test(name, fn) {
             try { await fn(); results.push({ name, pass: true }); }
             catch (e) { results.push({ name, pass: false, error: e.message }); }
           }
-          async function runAll() {
-
           const APP_DIR = process.cwd();
 
           // Module loadability
@@ -439,21 +438,24 @@ jobs:
           console.log('unit-total=' + total);
 
           // DB Connectivity Analysis
-          (async () => {
-            try {
-              const db = require(path.join(APP_DIR, 'utils/db'));
-              const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000));
-              const result = await Promise.race([
-                db.connectToDB().then(async client => { await client.close(); return true; }),
-                timeout
-              ]);
-              const status = result ? 'PASS (connected to MongoDB)' : 'FAIL';
-              fs.appendFileSync('/home/runner/unit-results.md', `\n### Database Connectivity\n\n- **Connection test**: ${status}\n`);
-            } catch(e) {
-              fs.appendFileSync('/home/runner/unit-results.md', `\n### Database Connectivity\n\n- **Connection test**: FAIL (${e.message})\n`);
-            }
-          })();
-          runAll().catch(e => { console.error(e); process.exit(1); });
+          try {
+            const db = require(path.join(APP_DIR, 'utils/db'));
+            const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000));
+            const result = await Promise.race([
+              db.connectToDB().then(async client => { await client.close(); return true; }),
+              timeout
+            ]);
+            const status = result ? 'PASS (connected to MongoDB)' : 'FAIL';
+            fs.appendFileSync('/home/runner/unit-results.md', `\n### Database Connectivity\n\n- **Connection test**: ${status}\n`);
+          } catch(e) {
+            fs.appendFileSync('/home/runner/unit-results.md', `\n### Database Connectivity\n\n- **Connection test**: FAIL (${e.message})\n`);
+          }
+          console.log('unit-passed=' + passed);
+          console.log('unit-total=' + total);
+          throw new Error('DONE');
+          })().catch(e => {
+            if (e.message !== 'DONE') { console.error(e); process.exit(1); }
+          });
           SCRIPT
 
       # ── Stage 4: HTTP Endpoint Tests ────────────────────────
