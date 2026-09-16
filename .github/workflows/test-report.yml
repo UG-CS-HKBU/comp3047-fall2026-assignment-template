@@ -618,35 +618,23 @@ jobs:
           console.log('Report compiled successfully');
           SCRIPT
 
-      # ── Stage 7: Create Pull Request with Report ──────────────────
-      - name: Create Pull Request with Report
+      # ── Stage 7: Upload Report and Screenshots ──────────
+      - name: Upload Test Report and Screenshots
         if: always()
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report-${{ github.run_id }}
+          path: |
+            /home/runner/test-report.md
+            /home/runner/screenshots/
+          retention-days: 30
+
+      - name: Publish Test Report to Job Summary
+        if: always()
         run: |
           if [ -f /home/runner/test-report.md ]; then
-            REPORT=$(cat /home/runner/test-report.md)
-            PR_BRANCH="test-report-${{ github.run_id }}"
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git checkout -b "$PR_BRANCH"
-            if [ -d /home/runner/screenshots ] && [ "$(ls -A /home/runner/screenshots 2>/dev/null)" ]; then
-              cp -r /home/runner/screenshots ./screenshots
-              git add screenshots/
-            fi
-            echo "$REPORT" > test-report.md
-            git add test-report.md
-            git commit -m "Test report - $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            git push origin "$PR_BRANCH"
-            gh pr create \
-              --title "Test Report - $(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-              --body "$REPORT" \
-              --label "test-report" \
-              --repo "${{ github.repository }}" \
-              --base "main" \
-              --head "$PR_BRANCH" \
-              --draft \
-              || echo "PR creation failed (may require repo permissions)"
+            echo "::notice title=Test Report Complete::Check the artifacts for the full report and screenshots"
+            cat /home/runner/test-report.md >> "$GITHUB_STEP_SUMMARY"
           else
-            echo "No test report found, skipping PR creation"
+            echo "No test report found" >> "$GITHUB_STEP_SUMMARY"
           fi
