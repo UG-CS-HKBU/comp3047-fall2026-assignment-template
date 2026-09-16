@@ -482,6 +482,8 @@ jobs:
             await browser.close();
 
             // Capture screenshots of all assignment pages at desktop and mobile viewports
+            const screenshotFiles = [];
+            fs.mkdirSync('/home/runner/screenshots', { recursive: true });
             try {
               const browser2 = await chromium.launch();
               const pages = [
@@ -500,21 +502,21 @@ jobs:
                 const dp = await dc.newPage();
                 await dp.goto(url);
                 await dp.waitForTimeout(500);
-                const dShot = await dp.screenshot({ encoding: 'base64' });
+                const dPath = `/home/runner/screenshots/${name}-desktop.png`;
+                await dp.screenshot({ path: dPath });
                 await dc.close();
                 // Mobile screenshot
                 const mc = await browser2.newContext({ viewport: { width: 375, height: 667 } });
                 const mp = await mc.newPage();
                 await mp.goto(url);
                 await mp.waitForTimeout(500);
-                const mShot = await mp.screenshot({ encoding: 'base64' });
+                const mPath = `/home/runner/screenshots/${name}-mobile.png`;
+                await mp.screenshot({ path: mPath });
                 await mc.close();
-                screenshots.push({ name, desktop: dShot, mobile: mShot });
+                screenshotFiles.push(dPath, mPath);
               }
               await browser2.close();
-              fs.writeFileSync('/home/runner/screenshots.json', JSON.stringify({ screenshots }, (key, value) =>
-                typeof value === 'string' && value.length > 500000 ? value.substring(0, 500000) : value
-              ));
+              fs.writeFileSync('/home/runner/screenshot-files.txt', screenshotFiles.join('\n'));
             } catch (e) {
               console.error('Screenshot capture error:', e.message);
             }
@@ -570,14 +572,12 @@ jobs:
           // Build screenshots section with desktop and mobile images
           let screenshotMd = '';
           try {
-            const { screenshots } = JSON.parse(fs.readFileSync('/home/runner/screenshots.json', 'utf8') || '{}');
-            if (screenshots && screenshots.length > 0) {
+            const screenshotFiles = fs.readFileSync('/home/runner/screenshot-files.txt', 'utf8').trim().split('\n').filter(Boolean);
+            if (screenshotFiles.length > 0) {
               screenshotMd = '## Screenshots\n\n';
-              for (const shot of screenshots) {
-                screenshotMd += `### ${shot.name} — Desktop\n\n`;
-                screenshotMd += `![${shot.name} desktop](data:image/png;base64,${shot.desktop})\n\n`;
-                screenshotMd += `### ${shot.name} — Mobile\n\n`;
-                screenshotMd += `![${shot.name} mobile](data:image/png;base64,${shot.mobile})\n\n`;
+              for (const path of screenshotFiles) {
+                const name = path.split('/').pop();
+                screenshotMd += `![${name}](${path})\n\n`;
               }
             }
           } catch(e) {
@@ -618,20 +618,33 @@ jobs:
           console.log('Report compiled successfully');
           SCRIPT
 
-      # ── Stage 7: Create GitHub Issue ────────────────────────
-      - name: Create GitHub Issue with Report
+      # ── Stage 7: Create Pull Request with Report ──────────────────
+      - name: Create Pull Request with Report
         if: always()
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ -f /home/runner/test-report.md ]; then
             REPORT=$(cat /home/runner/test-report.md)
-            gh issue create \
+            PR_BRANCH="test-report-${{ github.run_id }}"
+            git checkout -b "$PR_BRANCH"
+            if [ -d /home/runner/screenshots ] && [ "$(ls -A /home/runner/screenshots 2>/dev/null)" ]; then
+              cp -r /home/runner/screenshots ./screenshots
+              git add screenshots/
+            fi
+            echo "$REPORT" > test-report.md
+            git add test-report.md
+            git commit -m "Test report - $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git push origin "$PR_BRANCH"
+            gh pr create \
               --title "Test Report - $(date -u +%Y-%m-%dT%H:%M:%SZ)" \
               --body "$REPORT" \
               --label "test-report" \
               --repo "${{ github.repository }}" \
-              || echo "Issue creation failed (may require repo permissions)"
+              --base "main" \
+              --head "$PR_BRANCH" \
+              --draft \
+              || echo "PR creation failed (may require repo permissions)"
           else
-            echo "No test report found, skipping issue creation"
+            echo "No test report found, skipping PR creation"
           fi
