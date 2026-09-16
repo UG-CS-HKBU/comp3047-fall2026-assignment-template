@@ -582,34 +582,35 @@ jobs:
             screenshotMd = '## Screenshots\n\nNo screenshots captured.\n';
           }
 
-          const report = `# Test Report
-
-## Summary
-
-| Category | Passed | Total | Status |
-|----------|--------|-------|--------|
-| Unit Tests | ${unitStats.passed} | ${unitStats.total} | ${unitStats.passed === unitStats.total ? 'PASS' : 'FAIL'} |
-| HTTP Endpoint Tests | ${httpStats.passed} | ${httpStats.total} | ${httpStats.passed === httpStats.total ? 'PASS' : 'FAIL'} |
-| Browser E2E Tests | ${e2eStats.passed} | ${e2eStats.total} | ${e2eStats.passed === e2eStats.total ? 'PASS' : 'FAIL'} |
-
-**Overall: ${verdict} (${overallPassed}/${overallTotal})**
-
----
-
-${unitMd}
-
----
-
-${httpMd}
-
----
-
-${e2eMd}
-
----
-
-${screenshotMd}
-`;
+          const reportLines = [];
+          reportLines.push('# Test Report');
+          reportLines.push('');
+          reportLines.push('## Summary');
+          reportLines.push('');
+          reportLines.push('| Category | Passed | Total | Status |');
+          reportLines.push('|----------|--------|-------|--------|');
+          reportLines.push(`| Unit Tests | ${unitStats.passed} | ${unitStats.total} | ${unitStats.passed === unitStats.total ? 'PASS' : 'FAIL'} |`);
+          reportLines.push(`| HTTP Endpoint Tests | ${httpStats.passed} | ${httpStats.total} | ${httpStats.passed === httpStats.total ? 'PASS' : 'FAIL'} |`);
+          reportLines.push(`| Browser E2E Tests | ${e2eStats.passed} | ${e2eStats.total} | ${e2eStats.passed === e2eStats.total ? 'PASS' : 'FAIL'} |`);
+          reportLines.push('');
+          reportLines.push(`**Overall: ${verdict} (${overallPassed}/${overallTotal})**`);
+          reportLines.push('');
+          reportLines.push('---');
+          reportLines.push('');
+          reportLines.push(unitMd);
+          reportLines.push('');
+          reportLines.push('---');
+          reportLines.push('');
+          reportLines.push(httpMd);
+          reportLines.push('');
+          reportLines.push('---');
+          reportLines.push('');
+          reportLines.push(e2eMd);
+          reportLines.push('');
+          reportLines.push('---');
+          reportLines.push('');
+          reportLines.push(screenshotMd);
+          const report = reportLines.join('\n');
 
           fs.writeFileSync('/home/runner/test-report.md', report);
           console.log('Report compiled successfully');
