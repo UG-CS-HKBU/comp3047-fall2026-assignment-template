@@ -569,15 +569,15 @@ jobs:
           const overallTotal = unitStats.total + httpStats.total + e2eStats.total;
           const verdict = overallTotal > 0 && overallPassed === overallTotal ? 'ALL PASSED' : 'SOME TESTS FAILED';
 
-          // Build screenshots section with desktop and mobile images
+          // Build screenshots section with desktop and mobile images (relative paths)
           let screenshotMd = '';
           try {
             const screenshotFiles = fs.readFileSync('/home/runner/screenshot-files.txt', 'utf8').trim().split('\n').filter(Boolean);
             if (screenshotFiles.length > 0) {
               screenshotMd = '## Screenshots\n\n';
-              for (const path of screenshotFiles) {
-                const name = path.split('/').pop();
-                screenshotMd += `![${name}](${path})\n\n`;
+              for (const fullPath of screenshotFiles) {
+                const name = fullPath.split('/').pop();
+                screenshotMd += `![${name}](screenshots/${name})\n\n`;
               }
             }
           } catch(e) {
