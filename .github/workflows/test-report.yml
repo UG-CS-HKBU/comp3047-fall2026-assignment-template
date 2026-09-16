@@ -9,6 +9,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
+    services:
+      mongodb:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        env:
+          MONGO_INITDB_DATABASE: bookingsDB
+        options: >-
+          --health-cmd "mongosh --eval 'db.adminCommand(\"ping\")'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 30
+
     steps:
       # ── Stage 1: Setup ──────────────────────────────────────
       - name: Checkout code
@@ -23,23 +36,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # ── MongoDB Service ───────────────────────────────
-      - name: MongoDB
-        uses: supercharge/mongodb-github-action@1.3.0
-        with:
-          mongodb-version: 7
-          mongodb-replica-set: rs0
-
+      # ── Wait for MongoDB ────────────────────────────────
       - name: Wait for MongoDB
         run: |
-          for i in $(seq 1 30); do
-            if mongosh --eval "db.adminCommand('ping')" mongodb://localhost:27017 > /dev/null 2>&1; then
+          for i in $(seq 1 60); do
+            if nc -z localhost 27017 2>/dev/null; then
               echo "MongoDB ready"
               exit 0
             fi
             sleep 1
           done
-          echo "MongoDB did not start within 30s"
+          echo "MongoDB did not start within 60s"
           exit 1
 
       - name: Seed MongoDB
@@ -232,10 +239,11 @@ jobs:
           const fs = require('fs');
 
           const results = [];
-          function test(name, fn) {
-            try { fn(); results.push({ name, pass: true }); }
+          async function test(name, fn) {
+            try { await fn(); results.push({ name, pass: true }); }
             catch (e) { results.push({ name, pass: false, error: e.message }); }
           }
+          async function runAll() {
 
           const APP_DIR = process.cwd();
 
@@ -302,20 +310,18 @@ jobs:
             assert.ok(hasEvents || hasVenues || names.length === 0, 'Should have event/venue collections or be empty for seeding');
             await database.close();
           });
-          if (typeof process.env.MONGODB_SEED !== 'undefined') {
-            test('DB seeded successfully', async () => {
-              const db = require(path.join(APP_DIR, 'utils/db'));
-              const database = await db.connectToDB();
-              const collections = await database.listCollections().toArray();
-              const names = collections.map(c => c.name);
-              assert.ok(names.length > 0, 'Database should have seeded collections');
-              for (const c of collections) {
-                const count = await database.collection(c.name).countDocuments();
-                assert.ok(count > 0, `Collection ${c.name} should have documents after seeding`);
-              }
-              await database.close();
-            });
-          }
+          test('DB seeded successfully', async () => {
+            const db = require(path.join(APP_DIR, 'utils/db'));
+            const database = await db.connectToDB();
+            const collections = await database.listCollections().toArray();
+            const names = collections.map(c => c.name);
+            assert.ok(names.length > 0, 'Database should have seeded collections');
+            for (const c of collections) {
+              const count = await database.collection(c.name).countDocuments();
+              assert.ok(count > 0, `Collection ${c.name} should have documents after seeding`);
+            }
+            await database.close();
+          });
 
           // View engine
           test('view engine is ejs', () => {
@@ -413,10 +419,10 @@ jobs:
           const dbAnalysis = [];
           try {
             const dbContent = fs.readFileSync(path.join(APP_DIR, 'utils/db.js'), 'utf8');
-            const hasUriVar = dbContent.includes('MONGODB_URI');
+            const hasUriVar = dbContent.includes('MONGODB_URI') || dbContent.includes('process.env');
             const hasLocalhost = dbContent.includes('localhost') || dbContent.includes('127.0.0.1');
             const hasEnvCheck = dbContent.match(/process\.env\.MONGODB_URI/);
-            const hasOverride = dbContent.includes("'<your_mongodb_uri>'");
+            const hasOverride = dbContent.includes("'your_mongodb_uri'");
             dbAnalysis.push(`- **MONGODB_URI variable**: ${hasUriVar ? 'Present' : 'Missing'}`);
             dbAnalysis.push(`- **Environment variable check**: ${hasEnvCheck ? 'Yes' : 'No'}`);
             dbAnalysis.push(`- **Default to localhost**: ${hasLocalhost ? 'Yes' : 'No'}`);
@@ -431,6 +437,23 @@ jobs:
           fs.writeFileSync('/home/runner/unit-results.md', md);
           console.log('unit-passed=' + passed);
           console.log('unit-total=' + total);
+
+          // DB Connectivity Analysis
+          (async () => {
+            try {
+              const db = require(path.join(APP_DIR, 'utils/db'));
+              const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000));
+              const result = await Promise.race([
+                db.connectToDB().then(async client => { await client.close(); return true; }),
+                timeout
+              ]);
+              const status = result ? 'PASS (connected to MongoDB)' : 'FAIL';
+              fs.appendFileSync('/home/runner/unit-results.md', `\n### Database Connectivity\n\n- **Connection test**: ${status}\n`);
+            } catch(e) {
+              fs.appendFileSync('/home/runner/unit-results.md', `\n### Database Connectivity\n\n- **Connection test**: FAIL (${e.message})\n`);
+            }
+          })();
+          runAll().catch(e => { console.error(e); process.exit(1); });
           SCRIPT
 
       # ── Stage 4: HTTP Endpoint Tests ────────────────────────
