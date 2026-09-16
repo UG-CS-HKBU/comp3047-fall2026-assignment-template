@@ -627,6 +627,8 @@ jobs:
           if [ -f /home/runner/test-report.md ]; then
             REPORT=$(cat /home/runner/test-report.md)
             PR_BRANCH="test-report-${{ github.run_id }}"
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
             git checkout -b "$PR_BRANCH"
             if [ -d /home/runner/screenshots ] && [ "$(ls -A /home/runner/screenshots 2>/dev/null)" ]; then
               cp -r /home/runner/screenshots ./screenshots
