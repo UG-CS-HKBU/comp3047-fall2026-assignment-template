@@ -31,14 +31,16 @@ jobs:
           SERVER_PID=$!
           echo "server_pid=$SERVER_PID" >> $GITHUB_OUTPUT
           # Poll until ready
+          READY=false
           for i in $(seq 1 30); do
             if curl -sf http://localhost:3000/ > /dev/null 2>&1; then
-              echo "ready=true" >> $GITHUB_OUTPUT
+              READY=true
               break
             fi
             sleep 1
           done
-          if [ "${{ steps.server.outputs.ready }}" != "true" ]; then
+          echo "ready=$READY" >> $GITHUB_OUTPUT
+          if [ "$READY" != "true" ]; then
             echo "Server did not start within 30s"
             exit 1
           fi
@@ -622,10 +624,14 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          REPORT=$(cat /home/runner/test-report.md)
-          gh issue create \
-            --title "Test Report - $(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            --body "$REPORT" \
-            --label "test-report" \
-            --repo "${{ github.repository }}" \
-            || echo "Issue creation failed (may require repo permissions)"
+          if [ -f /home/runner/test-report.md ]; then
+            REPORT=$(cat /home/runner/test-report.md)
+            gh issue create \
+              --title "Test Report - $(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+              --body "$REPORT" \
+              --label "test-report" \
+              --repo "${{ github.repository }}" \
+              || echo "Issue creation failed (may require repo permissions)"
+          else
+            echo "No test report found, skipping issue creation"
+          fi
