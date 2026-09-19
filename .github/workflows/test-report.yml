@@ -34,7 +34,8 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: cd backend && npm ci
+        working-directory: backend
+        run: npm ci
 
       # ── Wait for MongoDB ────────────────────────────────
       - name: Wait for MongoDB
@@ -211,7 +212,7 @@ jobs:
       - name: Start Express server
         id: server
         run: |
-          cd backend && PORT=3000 MONGODB_URI=mongodb://localhost:27017 node ./bin/www &
+          PORT=3000 MONGODB_URI=mongodb://localhost:27017 node ./bin/www &
           SERVER_PID=$!
           echo "server_pid=$SERVER_PID" >> $GITHUB_OUTPUT
           # Poll until ready
