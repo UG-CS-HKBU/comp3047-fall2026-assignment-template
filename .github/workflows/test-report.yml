@@ -34,7 +34,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: cd backend && npm ci
 
       # ── Wait for MongoDB ────────────────────────────────
       - name: Wait for MongoDB
@@ -211,7 +211,7 @@ jobs:
       - name: Start Express server
         id: server
         run: |
-          PORT=3000 MONGODB_URI=mongodb://localhost:27017 node ./bin/www &
+          cd backend && PORT=3000 MONGODB_URI=mongodb://localhost:27017 node ./bin/www &
           SERVER_PID=$!
           echo "server_pid=$SERVER_PID" >> $GITHUB_OUTPUT
           # Poll until ready
@@ -243,7 +243,7 @@ jobs:
             try { fn(); results.push({ name, pass: true }); }
             catch (e) { results.push({ name, pass: false, error: e.message }); }
           }
-          const APP_DIR = process.cwd();
+          const APP_DIR = path.join(process.cwd(), 'backend');
 
           // Module loadability
           test('app module loads', () => {
