@@ -246,7 +246,7 @@ jobs:
             try { fn(); results.push({ name, pass: true }); }
             catch (e) { results.push({ name, pass: false, error: e.message }); }
           }
-          const APP_DIR = path.join(process.cwd(), 'backend');
+          const APP_DIR = process.cwd();
 
           // Module loadability
           test('app module loads', () => {
