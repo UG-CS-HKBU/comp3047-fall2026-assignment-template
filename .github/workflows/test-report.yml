@@ -848,16 +848,16 @@ jobs:
         with:
           name: test-report-${{ github.run_id }}
           path: |
-            backend/test-report.md
-            backend/screenshots/
+            /home/runner/test-report.md
+            /home/runner/screenshots/
           retention-days: 30
 
       - name: Publish Test Report to Job Summary
         if: always()
         run: |
-          if [ -f backend/test-report.md ]; then
+          if [ -f /home/runner/test-report.md ]; then
             echo "::notice title=Test Report Complete::Check the artifacts for the full report and screenshots"
-            cat backend/test-report.md >> "$GITHUB_STEP_SUMMARY"
+            cat /home/runner/test-report.md >> "$GITHUB_STEP_SUMMARY"
           else
             echo "No test report found" >> "$GITHUB_STEP_SUMMARY"
           fi
