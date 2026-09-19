@@ -50,6 +50,7 @@ jobs:
           exit 1
 
       - name: Seed MongoDB
+        working-directory: backend
         run: |
           node <<'SEED'
           const { MongoClient, ObjectId } = require('mongodb');
@@ -210,6 +211,7 @@ jobs:
 
       - name: Start Express server
         id: server
+        working-directory: backend
         run: |
           PORT=3000 MONGODB_URI=mongodb://localhost:27017 node ./bin/www &
           SERVER_PID=$!
@@ -232,6 +234,7 @@ jobs:
       # ── Stage 3: Unit Tests ─────────────────────────────────
       - name: Run Unit Tests
         id: unit
+        working-directory: backend
         run: |
           node <<'SCRIPT'
           const assert = require('assert');
@@ -416,6 +419,7 @@ jobs:
       # ── Stage 4: HTTP Endpoint Tests ────────────────────────
       - name: Run HTTP Endpoint Tests
         id: http
+        working-directory: backend
         run: |
           node <<'SCRIPT'
           const http = require('http');
@@ -569,6 +573,7 @@ jobs:
       - name: Install Playwright
         id: playwright
         continue-on-error: true
+        working-directory: backend
         run: |
           npm install playwright --no-save 2>&1 || echo "npm_failed=true" >> $GITHUB_OUTPUT
           if [ "${{ steps.playwright.outputs.npm_failed }}" != "true" ]; then
@@ -579,6 +584,7 @@ jobs:
       - name: Run Browser E2E Tests
         id: e2e
         continue-on-error: true
+        working-directory: backend
         run: |
           node <<'SCRIPT'
           const fs = require('fs');
@@ -759,6 +765,7 @@ jobs:
       # ── Stage 6: Report Compilation ─────────────────────────
       - name: Compile Test Report
         id: report
+        working-directory: backend
         run: |
           node <<'SCRIPT'
           const fs = require('fs');
@@ -841,16 +848,16 @@ jobs:
         with:
           name: test-report-${{ github.run_id }}
           path: |
-            /home/runner/test-report.md
-            /home/runner/screenshots/
+            backend/test-report.md
+            backend/screenshots/
           retention-days: 30
 
       - name: Publish Test Report to Job Summary
         if: always()
         run: |
-          if [ -f /home/runner/test-report.md ]; then
+          if [ -f backend/test-report.md ]; then
             echo "::notice title=Test Report Complete::Check the artifacts for the full report and screenshots"
-            cat /home/runner/test-report.md >> "$GITHUB_STEP_SUMMARY"
+            cat backend/test-report.md >> "$GITHUB_STEP_SUMMARY"
           else
             echo "No test report found" >> "$GITHUB_STEP_SUMMARY"
           fi
